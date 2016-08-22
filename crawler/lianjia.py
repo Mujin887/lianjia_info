@@ -2,19 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 import redis
 from datetime import datetime, timedelta
+import sys
 
-global_pre_fix = "demo:lianjia:"
-yesterday = (datetime.now() + timedelta(days = -1)).strftime("%Y-%m-%d")
-self_pre_fix = global_pre_fix + yesterday + ":"
-print(self_pre_fix)
-r = redis.StrictRedis(host='localhost', port=6379, db=0)
-pipe = r.pipeline(transaction=False)
-
-
-def trade_spider():
-    url = 'http://bj.lianjia.com/fangjia/'
+def trade_spider(area_arg):
+    url = 'http://' + area_arg + '.lianjia.com/fangjia/'
     soup = get_url_soup(url)
-    set_area_sum_data('beijing', soup)
+    set_area_sum_data(area_arg, soup)
     for link in soup.find_all('div',{'class':'hide'}):
         for location in link.find_all('a'):
             location_url = "http://bj.lianjia.com"+location.get('href')
@@ -32,22 +25,48 @@ def get_url_soup(url):
     # print(plain_text)
     return BeautifulSoup(plain_text,"html.parser")
 
+
+'''
+    存储每个区域的房价数据
+    存储的时候：
+        key：demo:lianjia:house_price:[城市]:[区域]
+        score：日期（YYYYMMDD）
+        value：[日期],[当天成交量],[当天房源带看量],[在售房源总套数],[最近90天成交套数]
+    获取最近60天的记录的命令：
+        zrange [key] -60 -1
+'''
 def set_area_sum_data(area, area_soup):
-    pre_fix = self_pre_fix + area
+    area_prefix = module_prefix + area
+    print(area_prefix)
+    # pipe.zadd()
     today_sold = 0 # 当天成交量
     today_check = 0 # 当天房源带看量
     on_sale = 0 # 在售房源总套数
     ninety_days_sold = 0 # 最近90天成交套数
 
+    data_sold_check = area_soup.find_all('div',{"class":"num"}) # 对城市来说，第一个是上月均价，第二个是昨日成交量，第三个是昨日房源带看量；对区域来说只有第二和第三
+    if area is area_arg:
+        today_sold = data_sold_check[1].contents[0].string
+        today_check = data_sold_check[2].contents[0].string
+    else:
+        today_sold = data_sold_check[0].contents[0].string
+        today_check = data_sold_check[1].contents[0].string
+    if today_sold is "暂无数据":
+        today_sold = 0
+    if today_check is "暂无数据":
+        today_check = 0
+    print(today_sold, today_check)
+    data_on_sale = area_soup.find_all(text="在售房源")
+    print(data_on_sale)
+    data_old_sold = area_soup.find_all(text="最近90天内成交房源")
+    print(data_old_sold)
 
 
-
-'''
-    source_code = requests.get(area_url)
-    plain_text = source_code.text
-    soup = BeautifulSoup(plain_text,"html.parser")
-    for director in soup.find_all('a',{"rel":"v:directedBy"}):
-        print("导演:",director.string)
-'''
-
-trade_spider()
+# 业务逻辑开始
+area_arg = sys.argv[1] # 第一个参数
+global_prefix = "demo:lianjia:"
+module_prefix = global_prefix + "house_price:" + area_arg + ":"
+yesterday_score = (datetime.now() + timedelta(days = -1)).strftime("%Y%m%d")
+r = redis.StrictRedis(host='localhost', port=6379, db=0)
+pipe = r.pipeline(transaction=False)
+trade_spider(area_arg)
