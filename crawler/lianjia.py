@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+'''
+    app usage:
+        1.chmod +x lianjia.py
+        2../lianjia.py bj >> logfile
+    crontab usage: crontab lianjia_crawler_job.cron
+'''
+
 import requests
 from bs4 import BeautifulSoup
 import redis
@@ -5,6 +13,7 @@ from datetime import datetime, timedelta
 import sys
 
 def trade_spider(area_arg):
+    print("-"*20, date_score, "-"*20)
     url = 'http://' + area_arg + '.lianjia.com/fangjia/'
     soup = get_url_soup(url)
     set_area_sum_data(area_arg, area_arg, soup)
@@ -86,10 +95,10 @@ def set_area_sum_data(area, area_string, area_soup):
 area_arg = sys.argv[1] # 第一个参数
 global_prefix = "demo:lianjia:"
 module_prefix = global_prefix + "house_price:" + area_arg + ":"
-# date_score = (datetime.now() + timedelta(days = -1)).strftime("%Y%m%d")
-date_score = datetime.now().strftime("%Y%m%d") # 由于部署服务器在美国，时差的关系不需要减去1天，上线时调整过来
+date_score = (datetime.now() + timedelta(days = -1)).strftime("%Y%m%d")
+# date_score = datetime.now().strftime("%Y%m%d") # 由于部署服务器在美国，时差的关系不需要减去1天，上线时调整过来
 area_offset = 18 # TODO:这个区域偏移量只对北京有效，针对每个行政区下面小区域的处理逻辑，去除大的行政区域
-r = redis.StrictRedis(host='localhost', port=6379, db=2)
+r = redis.StrictRedis(host='localhost', port=6379, db=1)
 pipe = r.pipeline(transaction=False)
 del_pipe = r.pipeline() # 删除作为同一个事务
 
