@@ -95,10 +95,10 @@ def set_area_sum_data(area, area_string, area_soup):
 area_arg = sys.argv[1] # 第一个参数
 global_prefix = "demo:lianjia:"
 module_prefix = global_prefix + "house_price:" + area_arg + ":"
-date_score = (datetime.now() + timedelta(days = -1)).strftime("%Y%m%d")
-# date_score = datetime.now().strftime("%Y%m%d") # 由于部署服务器在美国，时差的关系不需要减去1天，上线时调整过来
+# date_score = (datetime.now() + timedelta(days = -1)).strftime("%Y%m%d")
+date_score = datetime.now().strftime("%Y%m%d") # 由于部署服务器在美国，时差的关系不需要减去1天
 area_offset = 18 # TODO:这个区域偏移量只对北京有效，针对每个行政区下面小区域的处理逻辑，去除大的行政区域
-r = redis.StrictRedis(host='localhost', port=6379, db=1)
+r = redis.StrictRedis(host='localhost', port=6379, db=1) # demo都存在第一个数据库中
 pipe = r.pipeline(transaction=False)
 del_pipe = r.pipeline() # 删除作为同一个事务
 
