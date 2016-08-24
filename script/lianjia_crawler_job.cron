@@ -1,1 +1,1 @@
-0 5 * * * ../crawler/lianjia.py >> ../log/logfile
+0 18 * * * ../crawler/lianjia.py bj >> ../log/logfile

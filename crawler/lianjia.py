@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 '''
     app usage:
         1.chmod +x lianjia.py
-        2../lianjia.py bj >> logfile
+        2../lianjia.py bj >> ../log/logfile
     crontab usage: crontab lianjia_crawler_job.cron
 '''
 
@@ -11,7 +13,22 @@ from bs4 import BeautifulSoup
 import redis
 from datetime import datetime, timedelta
 import sys
+from imp import reload
 
+# 全局变量定义
+reload(sys)
+sys.setdefaultencoding('utf-8') # 修改默认字符集，系统默认为ascii
+area_arg = sys.argv[1] # 第一个参数
+global_prefix = "demo:lianjia:"
+module_prefix = global_prefix + "house_price:" + area_arg + ":"
+# date_score = (datetime.now() + timedelta(days = -1)).strftime("%Y%m%d")
+date_score = datetime.now().strftime("%Y%m%d") # 由于部署服务器在美国，时差的关系不需要减去1天
+area_offset = 18 # TODO:这个区域偏移量只对北京有效，针对每个行政区下面小区域的处理逻辑，去除大的行政区域
+r = redis.StrictRedis(host='localhost', port=6379, db=1) # demo都存在第一个数据库中
+pipe = r.pipeline(transaction=False)
+del_pipe = r.pipeline() # 删除作为同一个事务
+
+# 获取城市数据存储到redis
 def trade_spider(area_arg):
     print("-"*20, date_score, "-"*20)
     url = 'http://' + area_arg + '.lianjia.com/fangjia/'
@@ -76,13 +93,13 @@ def set_area_sum_data(area, area_string, area_soup):
     on_sale = data_sale_sold[0].contents[0].string[4:-1] # string例子：在售房源1980套，将数字截取出来
     ninety_days_sold = data_sale_sold[1].contents[0].string[10:-1] # string例子：最近90天内成交房源36051套，将数字截取出来
 
-    if "暂无数据" in str(today_sold):
+    if str(today_sold).endswith("暂无数据"):
         today_sold = str(0)
-    if "暂无数据" in str(today_check):
+    if str(today_check).endswith("暂无数据"):
         today_check = str(0)
-    if "暂无数" in str(on_sale):
+    if str(on_sale).endswith("暂无数"):
         on_sale = str(0)
-    if "暂无数" in str(ninety_days_sold):
+    if str(ninety_days_sold).endswith("暂无数"):
         ninety_days_sold = str(0)
 
     area_key = module_prefix + area
@@ -92,15 +109,4 @@ def set_area_sum_data(area, area_string, area_soup):
     pipe.zadd(area_key, date_score, area_value)
 
 # 业务逻辑开始
-area_arg = sys.argv[1] # 第一个参数
-global_prefix = "demo:lianjia:"
-module_prefix = global_prefix + "house_price:" + area_arg + ":"
-# date_score = (datetime.now() + timedelta(days = -1)).strftime("%Y%m%d")
-date_score = datetime.now().strftime("%Y%m%d") # 由于部署服务器在美国，时差的关系不需要减去1天
-area_offset = 18 # TODO:这个区域偏移量只对北京有效，针对每个行政区下面小区域的处理逻辑，去除大的行政区域
-r = redis.StrictRedis(host='localhost', port=6379, db=1) # demo都存在第一个数据库中
-pipe = r.pipeline(transaction=False)
-del_pipe = r.pipeline() # 删除作为同一个事务
-
-# 开始执行！
 trade_spider(area_arg)
